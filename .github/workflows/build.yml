@@ -16,16 +16,7 @@ jobs:
         with:
           gradle-version: 8.5
           cache-disabled: true
-      - name: Fantasy のバージョンを自動選択
-        id: fantasy
-        run: |
-          curl -s https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/maven-metadata.xml -o meta.xml
-          V=$(grep -o "<version>[^<]*+1\.20\.1</version>" meta.xml | sed 's/<[^>]*>//g' | tail -n 1)
-          if [ -z "$V" ]; then V=$(grep -o "<version>[^<]*+1\.20</version>" meta.xml | sed 's/<[^>]*>//g' | tail -n 1); fi
-          echo "選択したバージョン: $V"
-          if [ -z "$V" ]; then echo "1.20.1 対応のFantasyが見つかりません。公開一覧:"; grep "<version>" meta.xml; exit 1; fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-      - run: gradle build --stacktrace -Pfantasy_version=${{ steps.fantasy.outputs.version }}
+      - run: gradle build --stacktrace
       - uses: actions/upload-artifact@v5
         with:
           name: luckylobby-jar
