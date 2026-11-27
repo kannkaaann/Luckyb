@@ -16,10 +16,17 @@ jobs:
         with:
           gradle-version: 8.5
           cache-disabled: true
-      - name: Fantasy の公開バージョン一覧(確認用)
-        continue-on-error: true
-        run: curl -s https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/maven-metadata.xml | grep "<version>"
-      - run: gradle build --stacktrace
+      - name: Fantasy のバージョンを自動選択
+        id: fantasy
+        run: |
+          curl -s https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/maven-metadata.xml -o meta.xml
+          echo "--- 公開されているFantasyのバージョン一覧 ---"
+          grep "<version>" meta.xml
+          V=$(grep -o "<version>[^<]*+1\.20\.2</version>" meta.xml | sed 's/<[^>]*>//g' | tail -n 1)
+          echo "選択したバージョン: $V"
+          if [ -z "$V" ]; then echo "1.20.2 対応のFantasyが見つかりません"; exit 1; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+      - run: gradle build --stacktrace -Pfantasy_version=${{ steps.fantasy.outputs.version }}
       - uses: actions/upload-artifact@v5
         with:
           name: luckylobby-jar
