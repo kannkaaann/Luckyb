@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "luckylobby",
+  "version": "${version}",
+  "name": "Lucky Lobby",
+  "description": "ロビーから ラッキーワンブロック / ラッキーブロックPVP / ラッキー一本道レース を選んで遊べる多機能Mod。ロビーにはスロット・ブラックジャック・ポーカー付き。",
+  "authors": ["you"],
+  "environment": "*",
+  "entrypoints": { "main": ["jp.luckylobby.LuckyLobbyMod"] },
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "lucky": "*"
+  }
+}

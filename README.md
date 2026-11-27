@@ -12,7 +12,7 @@ Fabric 1.20.1 用Mod(専用サーバー/シングルプレイ(統合サーバー
 ## ビルド
 - GitHub Actions: push すると自動ビルドされ、Artifacts から jar を取得できます
 - ローカル: `gradle wrapper` → `./gradlew build` → `build/libs/luckylobby-*.jar`
-- `gradle.properties` の `fantasy_version` は https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/ で 1.20.1 対応版を確認してください
+- `fantasy_version` は `0.4.11+1.20-rc1` 固定です(1.20系で公開されている唯一の版で、1.20.1でも動作します)
 
 ## 遊び方
 - 参加するとロビーへ。ホットバー: コンパス=管理メニュー(OP/ホスト) / エメラルド=カジノ
