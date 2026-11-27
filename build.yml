@@ -16,7 +16,18 @@ jobs:
         with:
           gradle-version: 8.5
           cache-disabled: true
-      - run: gradle build --stacktrace
+      - name: ビルド
+        shell: bash
+        run: gradle build --console=plain 2>&1 | tee build.log
+      - name: エラー部分だけ表示(失敗時)
+        if: failure()
+        shell: bash
+        run: |
+          echo "===== ここから下を貼ってください ====="
+          grep -n -E "error:|warning: \[|What went wrong|FAILED|Could not|Caused by" build.log | head -60
+          echo "----- エラー詳細 -----"
+          grep -n -A8 "What went wrong" build.log | head -40
+          echo "===== ここまで ====="
       - uses: actions/upload-artifact@v5
         with:
           name: luckylobby-jar
