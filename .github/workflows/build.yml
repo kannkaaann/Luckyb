@@ -20,11 +20,10 @@ jobs:
         id: fantasy
         run: |
           curl -s https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/maven-metadata.xml -o meta.xml
-          echo "--- 公開されているFantasyのバージョン一覧 ---"
-          grep "<version>" meta.xml
-          V=$(grep -o "<version>[^<]*+1\.20\.2</version>" meta.xml | sed 's/<[^>]*>//g' | tail -n 1)
+          V=$(grep -o "<version>[^<]*+1\.20\.1</version>" meta.xml | sed 's/<[^>]*>//g' | tail -n 1)
+          if [ -z "$V" ]; then V=$(grep -o "<version>[^<]*+1\.20</version>" meta.xml | sed 's/<[^>]*>//g' | tail -n 1); fi
           echo "選択したバージョン: $V"
-          if [ -z "$V" ]; then echo "1.20.2 対応のFantasyが見つかりません"; exit 1; fi
+          if [ -z "$V" ]; then echo "1.20.1 対応のFantasyが見つかりません。公開一覧:"; grep "<version>" meta.xml; exit 1; fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
       - run: gradle build --stacktrace -Pfantasy_version=${{ steps.fantasy.outputs.version }}
       - uses: actions/upload-artifact@v5
