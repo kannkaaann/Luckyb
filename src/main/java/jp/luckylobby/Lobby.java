@@ -27,7 +27,7 @@ public final class Lobby {
     public static final BlockPos ADMIN = new BlockPos(0, 65, -12);
 
     public static void init(MinecraftServer server) {
-        handle = Fantasy.get(server).openPersistentWorld(ID,
+        handle = Fantasy.get(server).getOrOpenPersistentWorld(ID,
                 WorldFactory.voidConfig(server, DimensionTypes.OVERWORLD, 6000, false));
         world = handle.asWorld();
         for (int cx = -2; cx <= 2; cx++) for (int cz = -2; cz <= 2; cz++) world.setChunkForced(cx, cz, true);
