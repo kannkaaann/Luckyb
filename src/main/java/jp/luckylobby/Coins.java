@@ -11,11 +11,10 @@ import java.util.UUID;
 /** カジノ用コイン(ワールドに永続保存)。 */
 public class Coins extends PersistentState {
     public static final long START = 1000;
-    private static final PersistentState.Type<Coins> TYPE = new PersistentState.Type<>(Coins::new, Coins::load, null);
     private final Map<UUID, Long> m = new HashMap<>();
 
     public static Coins of(MinecraftServer s) {
-        return s.getOverworld().getPersistentStateManager().getOrCreate(TYPE, "luckylobby_coins");
+        return s.getOverworld().getPersistentStateManager().getOrCreate(Coins::load, Coins::new, "luckylobby_coins");
     }
 
     private static Coins load(NbtCompound nbt) {

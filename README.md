@@ -1,18 +1,18 @@
 # Lucky Lobby
 
-Fabric 1.20.2 用Mod(専用サーバー/シングルプレイ(統合サーバー)の両対応)。ロビーから **ラッキーワンブロック / ラッキーブロックPVP / ラッキー一本道レース** を選んで遊べます。
+Fabric 1.20.1 用Mod(専用サーバー/シングルプレイ(統合サーバー)の両対応)。ロビーから **ラッキーワンブロック / ラッキーブロックPVP / ラッキー一本道レース** を選んで遊べます。
 ゲーム用ワールドは [Fantasy](https://github.com/NucleoidMC/fantasy) で開始時に生成され、終了時に削除されます。クライアントMod不要(チェストGUI)。
 ロビーにはスロット・ブラックジャック・ビデオポーカーがあり、待ち時間に遊べます。
 
 ## 必要なもの
-- Minecraft 1.20.2 / Fabric Loader / Fabric API / Java 17
-- [Lucky Block Mod](https://luckyblockmod.com/) (`lucky-block-fabric-1_20_2-13_0.jar`) をサーバーに導入
+- Minecraft 1.20.1 / Fabric Loader / Fabric API / Java 17
+- [Lucky Block Mod](https://luckyblockmod.com/) の **1.20.1 版 Fabric jar** をサーバーに導入
 - 本Modのjar(Fantasyはjar内に同梱)
 
 ## ビルド
 - GitHub Actions: push すると自動ビルドされ、Artifacts から jar を取得できます
 - ローカル: `gradle wrapper` → `./gradlew build` → `build/libs/luckylobby-*.jar`
-- `gradle.properties` の `fantasy_version` は https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/ で 1.20.2 対応版を確認してください
+- `gradle.properties` の `fantasy_version` は https://maven.nucleoid.xyz/xyz/nucleoid/fantasy/ で 1.20.1 対応版を確認してください
 
 ## 遊び方
 - 参加するとロビーへ。ホットバー: コンパス=管理メニュー(OP/ホスト) / エメラルド=カジノ
