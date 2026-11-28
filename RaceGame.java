@@ -4,6 +4,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.enchantment.Enchantments;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.Box;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -23,6 +27,9 @@ import java.util.*;
  * ラッキー一本道レース(空中コース版)。
  * - 空中に浮く幅1マスの一本道をプレイヤー(レーン)ごとに敷く。レーン間のすき間は1マス。
  * - 道の上にラッキーブロックの壁(高さ2・幅3)が立ちはだかる。壊さないと進めない。
+ * - 道の真上(高さ3マス目)にバリアブロックを敷き、ブロックを積んで壁を越えられないようにする。
+ * - ラッキーブロックで道の地面が壊れても、すぐ張り直す。
+ * - 死んだら最初から: スタート地点へ戻り、そのレーンの壁(ラッキーブロック)も全て新品に置き直す。
  * - 自分のレーンの中心から2マス近く離れる(隣レーンへ移る等)と即死、落下も即死。
  * - 曲がり角・制限時間・ランダムイベント・順位は添付の「一本道レース v3.2」を参考。
  */
@@ -46,7 +53,13 @@ public class RaceGame extends Game {
     private final List<List<int[]>> cells = new ArrayList<>();
     private final List<Map<Long, Integer>> cellIndex = new ArrayList<>();
     private final List<List<Integer>> wallIdx = new ArrayList<>();
-    private final Map<UUID, Integer> lane = new HashMap<>(), cur = new HashMap<>(), best = new HashMap<>(), cp = new HashMap<>();
+    private final Map<UUID, Integer> lane = new HashMap<>(), cur = new HashMap<>(), best = new HashMap<>();
+    /** 各レーンの壁の位置 {中心x, 中心z, 法線x, 法線z} */
+    private final List<List<int[]>> wallList = new ArrayList<>();
+    /** 壁を構成するブロック全部(BlockPos.asLong) */
+    private final Set<Long> wallBlocks = new HashSet<>();
+    /** 全レーンの道のマス(x,z) */
+    private final Set<Long> pathKeys = new HashSet<>();
     private final List<UUID> finishOrder = new ArrayList<>();
     private int finishTimer = -1, timeLeft, eventIn = 500;
 
@@ -121,11 +134,13 @@ public class RaceGame extends Game {
             for (int j = 0; j < c.size(); j++) {
                 int[] q = c.get(j);
                 idx.putIfAbsent(key(q[0], q[1]), j);
+                pathKeys.add(key(q[0], q[1]));
                 world.setBlockState(new BlockPos(q[0], Y, q[1]), j >= c.size() - GOAL_CELLS
                         ? Blocks.GOLD_BLOCK.getDefaultState() : WOOL[i % 8], f);
             }
             cellIndex.add(idx);
             wallIdx.add(new ArrayList<>());
+            wallList.add(new ArrayList<>());
         }
 
         // ラッキーブロックの壁: 道+左右のすき間 の 3幅 x 高さ2
@@ -136,13 +151,90 @@ public class RaceGame extends Game {
                 int wx = cs[k][0] + d[0] * u, wz = cs[k][1] + d[1] * u;
                 for (int i = 0; i < n; i++) {
                     int px = wx + off[i] * nn[0], pz = wz + off[i] * nn[1];
-                    for (int t = -1; t <= 1; t++) for (int h = 1; h <= 2; h++)
-                        world.setBlockState(new BlockPos(px + t * nn[0], Y + h, pz + t * nn[1]), lucky, f);
+                    wallList.get(i).add(new int[]{px, pz, nn[0], nn[1]});
+                    placeWall(i, wallList.get(i).get(wallList.get(i).size() - 1), lucky);
                     Integer wi = cellIndex.get(i).get(key(px, pz));
                     if (wi != null) wallIdx.get(i).add(wi);
                 }
             }
         }
+        buildBarrier();
+    }
+
+    private void placeWall(int lane, int[] w, BlockState lucky) {
+        for (int t = -1; t <= 1; t++) for (int h = 1; h <= 2; h++) {
+            BlockPos bp = new BlockPos(w[0] + t * w[2], Y + h, w[1] + t * w[3]);
+            wallBlocks.add(bp.asLong());
+            world.setBlockState(bp, lucky, Block.NOTIFY_LISTENERS);
+        }
+    }
+
+    /** 道の真上(高さ3マス目 = Y+3)にバリアを敷く。ブロックを積んで壁を越えるのを防ぐ。 */
+    private void buildBarrier() {
+        BlockState bar = Blocks.BARRIER.getDefaultState();
+        Set<Long> done = new HashSet<>();
+        for (List<int[]> c : cells) for (int[] q : c)
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                BlockPos bp = new BlockPos(q[0] + dx, Y + 3, q[1] + dz);
+                if (done.add(bp.asLong())) world.setBlockState(bp, bar, Block.NOTIFY_LISTENERS);
+            }
+    }
+
+    private Block groundOf(int lane, int idx) {
+        return idx >= cells.get(lane).size() - GOAL_CELLS ? Blocks.GOLD_BLOCK : WOOL[lane % 8].getBlock();
+    }
+
+    /** 道の地面(と真上のバリア)が壊れていたら、すぐ置き直す。 */
+    private void ensureCells(int lane, int from, int to) {
+        List<int[]> c = cells.get(lane);
+        for (int j = Math.max(0, from); j <= Math.min(c.size() - 1, to); j++) {
+            int[] q = c.get(j);
+            BlockPos g = new BlockPos(q[0], Y, q[1]);
+            if (!world.isChunkLoaded(g)) continue;
+            Block exp = groundOf(lane, j);
+            if (!world.getBlockState(g).isOf(exp)) world.setBlockState(g, exp.getDefaultState(), Block.NOTIFY_LISTENERS);
+            BlockPos b = g.up(3);
+            if (!world.getBlockState(b).isOf(Blocks.BARRIER)) world.setBlockState(b, Blocks.BARRIER.getDefaultState(), Block.NOTIFY_LISTENERS);
+        }
+    }
+
+    /** 死亡時: そのレーンを完全に最初の状態へ戻す(壁は全て新品、地面も張り直し、中のゴミも撤去)。 */
+    private void resetLane(int lane) {
+        List<int[]> c = cells.get(lane);
+        BlockState lucky = Util.luckyBlock().getDefaultState(), air = Blocks.AIR.getDefaultState();
+        int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        for (int j = 0; j < c.size(); j++) {
+            int[] q = c.get(j);
+            minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]);
+            minZ = Math.min(minZ, q[1]); maxZ = Math.max(maxZ, q[1]);
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                int x = q[0] + dx, z = q[1] + dz;
+                boolean isPath = pathKeys.contains(key(x, z));
+                for (int h = 1; h <= 2; h++) {
+                    BlockPos bp = new BlockPos(x, Y + h, z);
+                    if (!wallBlocks.contains(bp.asLong()) && !world.getBlockState(bp).isAir()) world.setBlockState(bp, air, Block.NOTIFY_LISTENERS);
+                }
+                if (!isPath) { // すき間に積まれたブロックを撤去
+                    BlockPos g = new BlockPos(x, Y, z);
+                    if (!world.getBlockState(g).isAir()) world.setBlockState(g, air, Block.NOTIFY_LISTENERS);
+                }
+            }
+        }
+        ensureCells(lane, 0, c.size() - 1);
+        for (int[] w : wallList.get(lane)) placeWall(lane, w, lucky);
+        Box box = new Box(minX - 3, Y - 6, minZ - 3, maxX + 4, Y + 12, maxZ + 4);
+        for (Entity e : world.getEntitiesByClass(Entity.class, box, en -> !(en instanceof PlayerEntity))) e.discard();
+    }
+
+    @Override public boolean onDeath(ServerPlayerEntity v, DamageSource src) {
+        PInfo i = players.get(v.getUuid());
+        if (i == null || state != State.RUNNING || finishOrder.contains(i.id)) return true;
+        int ln = lane.get(i.id);
+        resetLane(ln);
+        cur.put(i.id, START_CELL);
+        best.put(i.id, START_CELL);
+        Util.actionBar(v, "§c最初からやり直し！ 壁も元に戻りました");
+        return true;
     }
 
     @Override protected void assignSpawns() {
@@ -154,7 +246,7 @@ public class RaceGame extends Game {
             int[] c = cells.get(idx).get(START_CELL);
             i.spawn = new Vec3d(c[0] + 0.5, Y + 1, c[1] + 0.5);
             i.yaw = yaw;
-            cur.put(i.id, START_CELL); best.put(i.id, START_CELL); cp.put(i.id, START_CELL);
+            cur.put(i.id, START_CELL); best.put(i.id, START_CELL);
             idx++;
         }
     }
@@ -170,7 +262,7 @@ public class RaceGame extends Game {
     @Override protected void onStart() {
         timeLeft = s.raceMinutes * 1200;
         eventIn = 500;
-        Util.broadcast(onlineAll(), "§e[レース] §f空中の一本道を進め！ ラッキーブロックの壁を壊して先へ。§c隣のレーンへ移る/落ちると即死！");
+        Util.broadcast(onlineAll(), "§e[レース] §f空中の一本道を進め！ ラッキーブロックの壁を壊して先へ。§c隣のレーンへ移る/落ちると即死！死んだら最初から！");
     }
 
     private double progress(UUID id) { return best.get(id) / (double) (cells.get(lane.get(id)).size() - 1); }
@@ -210,13 +302,6 @@ public class RaceGame extends Game {
             cur.put(i.id, bj);
             if (bj > best.get(i.id)) best.put(i.id, bj);
             int b = best.get(i.id);
-            int newCp = cp.get(i.id);
-            for (int w : wallIdx.get(ln)) if (b >= w + 1 && w + 1 > newCp) newCp = w + 1;
-            if (newCp != cp.get(i.id)) {
-                cp.put(i.id, newCp);
-                int[] q = c.get(newCp);
-                p.setSpawnPoint(world.getRegistryKey(), new BlockPos(q[0], Y + 1, q[1]), i.yaw, true, false);
-            }
             if (b >= c.size() - GOAL_CELLS) {
                 finishOrder.add(i.id);
                 int rank = finishOrder.size();
@@ -225,6 +310,14 @@ public class RaceGame extends Game {
                 if (rank == 1) finishTimer = 300;
             }
         }
+        // 地面(とバリア)の即時修復: プレイヤー付近は毎tick、全体は1秒ごと
+        for (PInfo i : players.values()) {
+            ServerPlayerEntity p = online(i);
+            if (p == null || !p.isAlive()) continue;
+            int cj = cur.get(i.id);
+            ensureCells(lane.get(i.id), cj - 4, cj + 24);
+        }
+        if (ticks % 20 == 0) for (int l = 0; l < n; l++) ensureCells(l, 0, cells.get(l).size() - 1);
         if (ticks % 10 == 0) {
             List<PInfo> rk = ranking();
             for (int r = 0; r < rk.size(); r++) {
