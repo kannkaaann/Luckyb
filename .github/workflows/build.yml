@@ -11,10 +11,10 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: 8.5
+          gradle-version: 9.2.1
           cache-disabled: true
       - name: ビルド
         shell: bash
@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           echo "===== ここから下を貼ってください ====="
-          grep -n -E "error:|warning: \[|What went wrong|FAILED|Could not|Caused by" build.log | head -60
+          grep -n -E "error:|What went wrong|FAILED|Could not|Caused by" build.log | head -60
           echo "----- エラー詳細 -----"
           grep -n -A8 "What went wrong" build.log | head -40
           echo "===== ここまで ====="
