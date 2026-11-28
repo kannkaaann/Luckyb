@@ -5,7 +5,7 @@ Fabric 1.20.1 用Mod(専用サーバー/シングルプレイ(統合サーバー
 ロビーにはスロット・ブラックジャック・ビデオポーカーがあり、待ち時間に遊べます。
 
 ## 必要なもの
-- Minecraft 1.20.1 / Fabric Loader / Fabric API / Java 17
+- Minecraft 1.20.1 / Fabric Loader / Fabric API / Java 17(ビルドは Java 21 + Gradle 9.2.1 + Loom 1.14.10)
 - [Lucky Block Mod](https://luckyblockmod.com/) の **1.20.1 版 Fabric jar** をサーバーに導入
 - 本Modのjar(Fantasyはjar内に同梱)
 
